@@ -1,5 +1,9 @@
 node_modules/
 .next/
 trading_journal.db
+trading_journal.db-shm
+trading_journal.db-wal
 .env.local
 .env
+tsconfig.tsbuildinfo
+next-env.d.ts
