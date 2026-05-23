@@ -89,3 +89,31 @@ export interface TradeStats {
   worstTrade: number;
   avgGrade: string;
 }
+
+export interface Asset {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  name: string;
+  ticker?: string;
+  category: 'STOCKS' | 'REAL_ESTATE_US' | 'INDIA_LAND' | 'CRYPTO' | 'ALTERNATIVE' | 'CASH';
+  sub_category?: string;
+  current_value: number;
+  cost_basis?: number;
+  quantity?: number;
+  unit?: string;
+  location?: string;
+  currency?: string;
+  fx_rate?: number;
+  notes?: string;
+  date_acquired?: string;
+  status: 'ACTIVE' | 'SOLD';
+}
+
+export interface PortfolioStats {
+  totalValue: number;
+  totalCostBasis: number;
+  totalGainLoss: number;
+  totalGainLossPct: number;
+  byCategory: Record<string, { value: number; count: number; pct: number }>;
+}

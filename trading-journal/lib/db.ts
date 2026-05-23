@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
-import type { Trade, TradeFormData, Settings, TradeStats } from './types';
+import type { Trade, TradeFormData, Settings, TradeStats, Asset } from './types';
 
 let db: Database.Database | null = null;
 
@@ -53,6 +53,26 @@ export function getDb(): Database.Database {
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS assets (
+      id TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      name TEXT NOT NULL,
+      ticker TEXT,
+      category TEXT NOT NULL,
+      sub_category TEXT,
+      current_value REAL NOT NULL DEFAULT 0,
+      cost_basis REAL,
+      quantity REAL,
+      unit TEXT,
+      location TEXT,
+      currency TEXT DEFAULT 'USD',
+      fx_rate REAL DEFAULT 1,
+      notes TEXT,
+      date_acquired TEXT,
+      status TEXT DEFAULT 'ACTIVE'
     );
   `);
 
@@ -323,6 +343,106 @@ export function saveSettings(settings: Partial<Settings>): void {
   ]);
 
   upsert(entries);
+}
+
+export function getAssets(): Asset[] {
+  const database = getDb();
+  const stmt = database.prepare(
+    "SELECT * FROM assets WHERE status = 'ACTIVE' ORDER BY current_value DESC"
+  );
+  return stmt.all() as Asset[];
+}
+
+export function getAssetById(id: string): Asset | null {
+  const database = getDb();
+  const stmt = database.prepare('SELECT * FROM assets WHERE id = ?');
+  const result = stmt.get(id) as Asset | undefined;
+  return result || null;
+}
+
+export function createAsset(data: Omit<Asset, 'id' | 'created_at' | 'updated_at'>): Asset {
+  const database = getDb();
+  const id = uuidv4();
+  const now = new Date().toISOString();
+
+  const asset: Asset = {
+    id,
+    created_at: now,
+    updated_at: now,
+    name: data.name,
+    ticker: data.ticker,
+    category: data.category,
+    sub_category: data.sub_category,
+    current_value: data.current_value,
+    cost_basis: data.cost_basis,
+    quantity: data.quantity,
+    unit: data.unit,
+    location: data.location,
+    currency: data.currency || 'USD',
+    fx_rate: data.fx_rate ?? 1,
+    notes: data.notes,
+    date_acquired: data.date_acquired,
+    status: data.status || 'ACTIVE',
+  };
+
+  const stmt = database.prepare(`
+    INSERT INTO assets (
+      id, created_at, updated_at, name, ticker, category, sub_category,
+      current_value, cost_basis, quantity, unit, location, currency, fx_rate,
+      notes, date_acquired, status
+    ) VALUES (
+      @id, @created_at, @updated_at, @name, @ticker, @category, @sub_category,
+      @current_value, @cost_basis, @quantity, @unit, @location, @currency, @fx_rate,
+      @notes, @date_acquired, @status
+    )
+  `);
+
+  stmt.run(asset);
+  return asset;
+}
+
+export function updateAsset(id: string, data: Partial<Asset>): Asset {
+  const database = getDb();
+  const existing = getAssetById(id);
+  if (!existing) throw new Error(`Asset ${id} not found`);
+
+  const now = new Date().toISOString();
+  const updated: Asset = {
+    ...existing,
+    ...data,
+    id,
+    created_at: existing.created_at,
+    updated_at: now,
+  };
+
+  const stmt = database.prepare(`
+    UPDATE assets SET
+      updated_at = @updated_at,
+      name = @name,
+      ticker = @ticker,
+      category = @category,
+      sub_category = @sub_category,
+      current_value = @current_value,
+      cost_basis = @cost_basis,
+      quantity = @quantity,
+      unit = @unit,
+      location = @location,
+      currency = @currency,
+      fx_rate = @fx_rate,
+      notes = @notes,
+      date_acquired = @date_acquired,
+      status = @status
+    WHERE id = @id
+  `);
+
+  stmt.run(updated);
+  return updated;
+}
+
+export function deleteAsset(id: string): void {
+  const database = getDb();
+  const stmt = database.prepare('DELETE FROM assets WHERE id = ?');
+  stmt.run(id);
 }
 
 export function getStats(): TradeStats {
