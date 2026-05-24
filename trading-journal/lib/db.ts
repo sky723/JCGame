@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
-import type { Trade, TradeFormData, Settings, TradeStats, Asset } from './types';
+import type { Trade, TradeFormData, Settings, TradeStats, Asset, NetworthItem } from './types';
 
 let db: Database.Database | null = null;
 
@@ -53,6 +53,18 @@ export function getDb(): Database.Database {
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS networth_items (
+      id TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'OTHER',
+      asset_value REAL NOT NULL DEFAULT 0,
+      liability REAL NOT NULL DEFAULT 0,
+      notes TEXT,
+      sort_order INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS assets (
@@ -443,6 +455,57 @@ export function deleteAsset(id: string): void {
   const database = getDb();
   const stmt = database.prepare('DELETE FROM assets WHERE id = ?');
   stmt.run(id);
+}
+
+// ─── Net Worth CRUD ────────────────────────────────────────────────────────────
+
+export function getNetworthItems(): NetworthItem[] {
+  const database = getDb();
+  return database
+    .prepare('SELECT * FROM networth_items ORDER BY sort_order ASC, created_at ASC')
+    .all() as NetworthItem[];
+}
+
+export function createNetworthItem(data: Omit<NetworthItem, 'id' | 'created_at' | 'updated_at'>): NetworthItem {
+  const database = getDb();
+  const id = uuidv4();
+  const now = new Date().toISOString();
+  const maxOrder = (
+    database.prepare('SELECT MAX(sort_order) as m FROM networth_items').get() as { m: number | null }
+  ).m ?? 0;
+  const item: NetworthItem = {
+    id,
+    created_at: now,
+    updated_at: now,
+    name: data.name,
+    category: data.category,
+    asset_value: data.asset_value,
+    liability: data.liability ?? 0,
+    notes: data.notes,
+    sort_order: maxOrder + 1,
+  };
+  database.prepare(`
+    INSERT INTO networth_items (id, created_at, updated_at, name, category, asset_value, liability, notes, sort_order)
+    VALUES (@id, @created_at, @updated_at, @name, @category, @asset_value, @liability, @notes, @sort_order)
+  `).run(item);
+  return item;
+}
+
+export function updateNetworthItem(id: string, data: Partial<Omit<NetworthItem, 'id' | 'created_at'>>): NetworthItem {
+  const database = getDb();
+  const existing = database.prepare('SELECT * FROM networth_items WHERE id = ?').get(id) as NetworthItem | undefined;
+  if (!existing) throw new Error(`NetworthItem ${id} not found`);
+  const updated: NetworthItem = { ...existing, ...data, id, created_at: existing.created_at, updated_at: new Date().toISOString() };
+  database.prepare(`
+    UPDATE networth_items SET updated_at=@updated_at, name=@name, category=@category,
+      asset_value=@asset_value, liability=@liability, notes=@notes, sort_order=@sort_order
+    WHERE id=@id
+  `).run(updated);
+  return updated;
+}
+
+export function deleteNetworthItem(id: string): void {
+  getDb().prepare('DELETE FROM networth_items WHERE id = ?').run(id);
 }
 
 export function getStats(): TradeStats {

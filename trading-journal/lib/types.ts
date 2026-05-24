@@ -110,6 +110,28 @@ export interface Asset {
   status: 'ACTIVE' | 'SOLD';
 }
 
+export type NetworthCategory =
+  | 'REAL_ESTATE'
+  | 'STOCKS'
+  | '401K'
+  | 'BROKERAGE'
+  | 'IRA'
+  | 'CRYPTO'
+  | 'CASH'
+  | 'OTHER';
+
+export interface NetworthItem {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  name: string;
+  category: NetworthCategory;
+  asset_value: number;
+  liability: number;
+  notes?: string;
+  sort_order: number;
+}
+
 export interface PortfolioStats {
   totalValue: number;
   totalCostBasis: number;
