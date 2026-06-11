@@ -35,7 +35,7 @@ import httpx
 # CONFIG — edit freely
 # --------------------------------------------------------------------------
 
-POLL_MINUTES = 30
+POLL_MINUTES = 120
 PRICE_THRESHOLD = 300  # only alert when lowest ticket drops below this
 
 FIXTURES = [

@@ -2,7 +2,7 @@ name: WC2026 Ticket Watcher
 
 on:
   schedule:
-    - cron: '*/30 * * * *'   # every 30 minutes
+    - cron: '0 */2 * * *'    # every 2 hours
   workflow_dispatch:          # manual trigger from GitHub Actions UI
 
 jobs:
