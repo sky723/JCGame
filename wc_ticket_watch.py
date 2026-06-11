@@ -36,22 +36,7 @@ import httpx
 # --------------------------------------------------------------------------
 
 POLL_MINUTES = 30
-DROP_PCT = 10
-
-PRICE_THRESHOLD = {
-    5: None,    # Brazil vs Morocco — MetLife, Jun 13
-    10: None,   # Côte d'Ivoire vs Ecuador — Linc, Jun 14
-    29: None,   # Brazil vs Haiti — Linc, Jun 19
-    41: None,   # France vs TBD — MetLife, Jun 22
-    43: None,   # Argentina vs Austria — Linc, Jun 23
-    64: None,   # Saudi Arabia vs C. Verde — Linc, Jun 26
-    65: None,   # France vs Norway — MetLife, Jun 26
-    71: None,   # England vs Ghana — Linc, Jun 27
-    77: None,   # Round of 32 — MetLife, Jun 30
-    89: None,   # Round of 16 — MetLife, Jul 4
-    94: None,   # Quarterfinal — Linc, Jul 6
-    104: None,  # FINAL — MetLife, Jul 19
-}
+PRICE_THRESHOLD = 300  # only alert when lowest ticket drops below this
 
 FIXTURES = [
     {"mn": 5,   "date": "2026-06-13", "label": "Brazil vs Morocco",           "venue": "MetLife Stadium"},
@@ -68,7 +53,7 @@ FIXTURES = [
     {"mn": 104, "date": "2026-07-19", "label": "WORLD CUP FINAL",             "venue": "MetLife Stadium"},
 ]
 
-WATCHED_VENUES = {"metlife", "lincoln financial"}
+WATCHED_VENUES = {"metlife", "lincoln financial", "gillette"}
 CATEGORY_URL = "https://www.tickpick.com/world-cup-soccer-tickets/"
 STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wc_state.json")
 HEADERS = {
@@ -125,13 +110,21 @@ def is_watched_venue(venue: str) -> bool:
 
 
 def match_fixture(event: dict) -> dict | None:
-    """Map a scraped event to one of our 12 fixtures by date + venue."""
+    """Return fixture for any watched-venue event; synthesize one if not in the known list."""
+    if not is_watched_venue(event["venue"]):
+        return None
     for fx in FIXTURES:
-        if fx["date"] == event["date"] and is_watched_venue(event["venue"]):
+        if fx["date"] == event["date"]:
             fx_v = fx["venue"].lower().split()[0]
             if fx_v in event["venue"].lower():
                 return fx
-    return None
+    # Watched venue (e.g. Gillette/Boston) not yet in FIXTURES — build on the fly
+    return {
+        "mn": event["date"].replace("-", "") + "_" + event["venue"].lower().split()[0],
+        "date": event["date"],
+        "label": event["name"],
+        "venue": event["venue"],
+    }
 
 
 def fetch_events() -> list[dict]:
@@ -198,25 +191,17 @@ def run_check() -> None:
         prev = state.get(key, {})
         prev_low = prev.get("lowest")
         low = ev["lowest"]
-        threshold = PRICE_THRESHOLD.get(fx["mn"])
         header = f"{fx['label']} — {fx['venue']} ({fx['date']})"
         link = ev["url"]
-        newly_under_target = bool(
-            threshold and low <= threshold and not prev.get("threshold_hit")
-        )
-        target_note = f"\n🎯 under your ${threshold} target" if newly_under_target else ""
-        if prev_low is None:
-            send_alert(f"🎟 NEW LISTING\n{header}\nLowest: ${low}{target_note}\n{link}")
-        elif low < prev_low * (1 - DROP_PCT / 100):
-            pct = round((prev_low - low) / prev_low * 100)
-            send_alert(f"📉 PRICE DROP -{pct}%\n{header}\n${prev_low} -> ${low}{target_note}\n{link}")
-        elif newly_under_target:
-            send_alert(f"🎯 UNDER YOUR ${threshold} TARGET\n{header}\nLowest: ${low}\n{link}")
+        # Only ping when under $300 and price improved (or first time seen under $300)
+        if low < PRICE_THRESHOLD and (prev_low is None or low < prev_low):
+            send_alert(f"🎯 UNDER ${PRICE_THRESHOLD}\n{header}\nLowest: ${low}\n{link}")
+        else:
+            print(f"[{fx['date']}] {fx['label']}: ${low} (threshold ${PRICE_THRESHOLD})")
         state[key] = {
             "lowest": low,
             "label": fx["label"],
             "checked": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "threshold_hit": state.get(key, {}).get("threshold_hit", False) or bool(threshold and low <= threshold),
         }
     if not seen_any:
         print("[no watched-venue events parsed this cycle]")
@@ -225,7 +210,7 @@ def run_check() -> None:
 
 def main() -> None:
     if "--loop" in sys.argv:
-        print(f"Watching {len(FIXTURES)} NJ/Philly matches every {POLL_MINUTES} min. Ctrl-C to stop.")
+        print(f"Watching NY/Philly/Boston matches under ${PRICE_THRESHOLD} every {POLL_MINUTES} min. Ctrl-C to stop.")
         while True:
             run_check()
             time.sleep(POLL_MINUTES * 60)
