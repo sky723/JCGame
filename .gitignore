@@ -213,3 +213,9 @@ pip-log.txt
 
 #Mr Developer
 .mr.developer.cfg
+
+# WC ticket watcher runtime state + secrets
+wc_state.json
+.env
+__pycache__/
+.venv/
