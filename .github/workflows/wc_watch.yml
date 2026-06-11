@@ -1,0 +1,38 @@
+name: WC2026 Ticket Watcher
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # every 30 minutes
+  workflow_dispatch:          # manual trigger from GitHub Actions UI
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install httpx
+
+      - name: Restore state cache
+        uses: actions/cache@v4
+        with:
+          path: wc_state.json
+          key: wc-state-${{ github.run_id }}
+          restore-keys: wc-state-
+
+      - name: Run ticket check
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: python wc_ticket_watch.py
+
+      - name: Save state cache
+        uses: actions/cache@v4
+        with:
+          path: wc_state.json
+          key: wc-state-${{ github.run_id }}
