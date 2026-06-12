@@ -3,7 +3,12 @@ name: WC2026 Ticket Watcher
 on:
   schedule:
     - cron: '0 */2 * * *'    # every 2 hours
-  workflow_dispatch:          # manual trigger from GitHub Actions UI
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'run mode: "check" (threshold alerts only) or "report" (send all current prices)'
+        required: false
+        default: 'check'
 
 jobs:
   watch:
@@ -29,7 +34,13 @@ jobs:
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
-        run: python wc_ticket_watch.py
+          RUN_MODE: ${{ github.event.inputs.mode || 'check' }}
+        run: |
+          if [ "$RUN_MODE" = "report" ]; then
+            python wc_ticket_watch.py --report
+          else
+            python wc_ticket_watch.py
+          fi
 
       - name: Save state cache
         uses: actions/cache@v4

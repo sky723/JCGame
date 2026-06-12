@@ -208,8 +208,30 @@ def run_check() -> None:
     save_state(state)
 
 
+def run_report() -> None:
+    """Fetch current prices for all watched venues and send a single Telegram summary."""
+    try:
+        events = fetch_events()
+    except Exception as e:
+        send_alert(f"[WC Watcher] scrape failed: {e}")
+        return
+    lines = []
+    for ev in events:
+        fx = match_fixture(ev)
+        if not fx:
+            continue
+        marker = " ✅" if ev["lowest"] < PRICE_THRESHOLD else ""
+        lines.append(f"{fx['date']}  {fx['label']}\n  ${ev['lowest']}{marker}  {fx['venue']}")
+    if lines:
+        send_alert("WC 2026 Current Prices\n\n" + "\n\n".join(lines))
+    else:
+        send_alert("[WC Watcher] no watched-venue listings found on tickpick right now")
+
+
 def main() -> None:
-    if "--loop" in sys.argv:
+    if "--report" in sys.argv:
+        run_report()
+    elif "--loop" in sys.argv:
         print(f"Watching NY/Philly/Boston matches under ${PRICE_THRESHOLD} every {POLL_MINUTES} min. Ctrl-C to stop.")
         while True:
             run_check()
