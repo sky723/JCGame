@@ -37,6 +37,9 @@ jobs:
         run: |
           echo "TG_BOT_TOKEN set: $([ -n "$TG_BOT_TOKEN" ] && echo YES || echo NO)"
           echo "TG_CHAT_ID set:   $([ -n "$TG_CHAT_ID" ] && echo YES || echo NO)"
+          echo "--- getUpdates (shows chat_id of anyone who messaged your bot) ---"
+          curl -s "https://api.telegram.org/bot${TG_BOT_TOKEN}/getUpdates"
+          echo ""
           echo "--- Telegram ping ---"
           curl -s "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TG_CHAT_ID}" \
