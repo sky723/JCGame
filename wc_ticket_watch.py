@@ -208,6 +208,11 @@ def run_check() -> None:
     save_state(state)
 
 
+def run_test() -> None:
+    """Send a test Telegram message to confirm secrets and connectivity are working."""
+    send_alert("✅ WC Ticket Watcher is alive!\nSecrets OK — you'll be pinged when NY/Philly/Boston tickets drop under $300.")
+
+
 def run_report() -> None:
     """Fetch current prices for all watched venues and send a single Telegram summary."""
     try:
@@ -229,7 +234,9 @@ def run_report() -> None:
 
 
 def main() -> None:
-    if "--report" in sys.argv:
+    if "--test" in sys.argv:
+        run_test()
+    elif "--report" in sys.argv:
         run_report()
     elif "--loop" in sys.argv:
         print(f"Watching NY/Philly/Boston matches under ${PRICE_THRESHOLD} every {POLL_MINUTES} min. Ctrl-C to stop.")

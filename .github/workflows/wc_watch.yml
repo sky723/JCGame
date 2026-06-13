@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'run mode: "check" (threshold alerts only) or "report" (send all current prices)'
+        description: '"check" (threshold alerts), "report" (all prices to Telegram), or "test" (ping Telegram only — no scraping)'
         required: false
         default: 'check'
 
@@ -36,7 +36,9 @@ jobs:
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           RUN_MODE: ${{ github.event.inputs.mode || 'check' }}
         run: |
-          if [ "$RUN_MODE" = "report" ]; then
+          if [ "$RUN_MODE" = "test" ]; then
+            python wc_ticket_watch.py --test
+          elif [ "$RUN_MODE" = "report" ]; then
             python wc_ticket_watch.py --report
           else
             python wc_ticket_watch.py
